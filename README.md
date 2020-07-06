@@ -8,7 +8,7 @@ devtools::install_github("binzhulab/SUITOR/source")
 
 Alternatively, download the package and follow the steps below.
 
-Download SUITOR_0.0.4.tar.gz (for Unix) or SUITOR_0.0.4.zip (for Windows).
+Download SUITOR_0.0.4.tar.gz (for Unix) or SUITOR_0.0.4.zip (for Windows, R version >= 4.0).
 
 To install SUITOR on Unix, enter the command (without the quotes) from a Unix prompt:
 
