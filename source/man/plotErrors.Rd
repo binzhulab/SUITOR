@@ -24,7 +24,7 @@ Donghyuk Lee <donghyuk.lee@nih.gov> and Bin Zhu <bin.zhu@nih.gov>
 }
 \examples{
   data(data, package="SUITOR")
-  s <- getSummary(results, 30)
+  s <- getSummary(results$all.results, ncol(data))
   plotErrors(s$summary)
 }
 \keyword{ NMF, cross-validation, mutational signatures } 

@@ -45,8 +45,7 @@
   \itemize{
     \item \code{rank}: The optimal rank
     \item \code{all.results}: Matrix containing training and testing errors for all values
-                             of seeds, ranks, folds. NA values appear for runs in which the EM 
-                             algorithm did not converge.
+                             of seeds, ranks, folds.
     \item{summary}: Data frame of summarized results for each possible rank created from \code{all.results}.
                     The \code{MSErr} column is defined as
                     sqrt(\{fold1 + ... +foldK\}/\{nrow(data)*ncol(data)\})
@@ -60,10 +59,9 @@ Donghyuk Lee <donghyuk.lee@nih.gov> and Bin Zhu <bin.zhu@nih.gov>
 \examples{
   data(data, package="SUITOR")
 
-  # Options to run quick example
-  op  <- list(max.rank=1, seeds=123, k.fold=2, plot=0)
-  ret <- suitor(data, op=op)
-  ret$all.results
+  # Using the default options will take several minutes to run
+  #ret <- suitor(data)
+  
 }
 \keyword{ NMF, cross-validation, mutational signatures } 
 \seealso{ \code{\link{getSummary}}, \code{\link{plotErrors}} }

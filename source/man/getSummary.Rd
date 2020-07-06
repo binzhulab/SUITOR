@@ -36,7 +36,7 @@ Donghyuk Lee <donghyuk.lee@nih.gov> and Bin Zhu <bin.zhu@nih.gov>
 }
 \examples{
   data(data, package="SUITOR")
-  ret <- getSummary(results, 30)
+  ret <- getSummary(results$all.results, ncol(data))
   ret$summary
   ret$rank
 }
