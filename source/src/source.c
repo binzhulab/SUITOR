@@ -1178,15 +1178,17 @@ NMFSTR *str;
     /* Call ECM */
     conv = ECM_alg(str);
 
+    /* Use final estimates regarless if algorithm converged.
+       See email from DongHyuk Lee 2020-07-03 */
+    delta_denom = str->delta_denom;
+    test_err    = loglike(x, logx, x_k_hat, idxMat, delta_denom, xlen, 1);
+    train_err   = loglike(x, logx, x_k_hat, idxMat, delta_denom, xlen, 0);
     if (conv) {
-      if (print > 2) Rprintf("EM algorithm converged in %d iterations\n", str->EM_iter);
-      delta_denom = str->delta_denom;
-      test_err    = loglike(x, logx, x_k_hat, idxMat, delta_denom, xlen, 1);
-      train_err   = loglike(x, logx, x_k_hat, idxMat, delta_denom, xlen, 0);
+      if (print > 2) Rprintf("EM algorithm converged in %d iterations\n", str->EM_iter); 
     } else {
       if (print) Rprintf("EM algorithm did not converge\n");
-      test_err    = DOUBLE_MISS;
-      train_err   = DOUBLE_MISS;
+      /*test_err    = DOUBLE_MISS;
+      train_err   = DOUBLE_MISS;*/
     }
 
     ret_train[i] = train_err;
