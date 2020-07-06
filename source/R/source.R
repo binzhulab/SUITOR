@@ -589,6 +589,7 @@ getSummary <- function(obj, NC, NR=96) {
   uranks <- sort(unique(ranks))
   nranks <- length(uranks)
   uk     <- sort(unique(kvec))
+  Kfold  <- max(uk, na.rm=TRUE)
   nk     <- length(uk)
   train  <- obj[, 4]
   test   <- obj[, 5]
@@ -622,7 +623,7 @@ getSummary <- function(obj, NC, NR=96) {
     }
     CV.tr[i]   <- sum(CV.1, na.rm=TRUE)
     CV.te[i]   <- sum(CV.2, na.rm=TRUE)
-    mse1       <- sqrt(CV.tr[i]/M)
+    mse1       <- sqrt(CV.tr[i]/M*(Kfold-1))
     mse2       <- sqrt(CV.te[i]/M)
     row        <- row + 1
     tab[row, ] <- c(rank, "Train", mse1, CV.1)
