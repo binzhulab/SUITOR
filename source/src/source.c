@@ -39,11 +39,11 @@
 
 void C_call_nmf(double *mat, int *iargs, double *dargs, double *retW, double *retH);
 void C_call_suitor(double *mat, int *iargs, double *dargs, int *rankVec, int *kVec, 
-                   double *ret_train, double *ret_test);
+                   double *ret_train, double *ret_test, int *ret_convVec, int *ret_EM_niterVec);
 
 static const R_CMethodDef callMethods[] = {
   {"C_call_nmf", (DL_FUNC)&C_call_nmf, 5},
-  {"C_call_suitor", (DL_FUNC)&C_call_suitor, 7},
+  {"C_call_suitor", (DL_FUNC)&C_call_suitor, 9},
   {NULL, NULL, 0}
 };
 
@@ -85,6 +85,9 @@ struct nmf_struct {
   int print;
   double *train_errors;
   double *test_errors;
+  int *convVec;        /* vector of convergence flags, passed in from R code */
+  int *EM_niterVec;    /* vector of iteration numbers, passed in from R code */
+
 
   double *tmpVecN, *tmpVecN2; /* scratch vectors of length xlen */
   double *tmpVecM;            /* scratch vector of length max(xnr, xnc) */
@@ -92,7 +95,7 @@ struct nmf_struct {
 };
 typedef struct nmf_struct NMFSTR;
  
-
+/*
 static void print_dVec(vec, n, name, by)
 double *vec;
 int n, by;
@@ -164,7 +167,7 @@ char name[10];
   }
   Rprintf("\n");
 }
-
+*/
 
 
 static double * dVec_alloc(n, initFlag, initVal)
@@ -237,7 +240,7 @@ int m1_nr, m1_nc, m2_nc;
 {
   /*  all matrices are stacked columns, same for ret */
 
-  int i, j, k, ii, colind;
+  int i, j, k, colind;
   double sum;
 
   for (i=0; i<m1_nr; i++) {
@@ -295,7 +298,7 @@ binary *cons;  /* cons is updated in this function */
 int cons_len, *index, nc; 
 {
   /*cons  <- outer(index, index, function(x,y) ifelse(x==y, 1,0))*/
-  int i, j, indi, indj, cons_index, anyChange=0;
+  int i, j, indi, cons_index, anyChange=0;
   binary isEq;
 
   /* Loop over upper triangle of outer (not including diagonal) */
@@ -361,7 +364,7 @@ static int get_idxMat0(idx, nr, nc, k, kfold)
 binary *idx;
 int nr, nc, k, kfold;
 {
-  int i, val, j, offset, ret=0;
+  int i, val, offset, ret=0;
 
   for (i=0; i<nr*nc; i++) idx[i] = 0;
   for (i=1; i<=nc; i++) {
@@ -462,7 +465,7 @@ static void my_update_H(pV, w, h, wnr, wnc, hnc)
 double *pV, *w, *h;
 int wnr, wnc, hnc;
 {
-   int n, r, p, ncterms=0, nbterms=0, vr, iH, jH, u, k, ii;
+   int n, r, p, ncterms=0, vr, iH, jH, u, k, ii;
    double *res, *pW, *pH, *p_res, *sumW, *pWH, tmp_res, w_sum, wh_term;
 
    /* retrieve dimensions from W and H */
@@ -695,6 +698,7 @@ NMFSTR *str;
 
 }
 
+/*
 static double get_train_adj(nrnc, idxMat, idxLen)
 int nrnc, idxLen;
 binary *idxMat;
@@ -709,6 +713,7 @@ binary *idxMat;
 
   return(ret);
 }
+*/
 
 static void update_x_k(x_k, x_k_hat, idxMat, n)
 double *x_k, *x_k_hat;
@@ -894,9 +899,9 @@ int nr, nc;
 
 }
 
-
+/*
 static void get_rowsums(x, nr, nc, ret)
-double *x, *ret; /* x is vector of  stacked columns */
+double *x, *ret; 
 int nr, nc;
 {
   int i, j, k=0;
@@ -909,8 +914,8 @@ int nr, nc;
       k++; 
     }
   }
-
 }
+*/
 
 static void get_colsums(x, nr, nc, ret)
 double *x, *ret; /* x is vector of  stacked columns */
@@ -949,10 +954,9 @@ static void ECM_update_h(h1, h0, w0, x_k, hnr, hnc, wnr, wnc, xnr, xnc, vM, vN, 
 double *h1, *h0, *w0, *x_k, *vM, *vN, *vN2;
 int hnr, hnc, wnr, wnc, xnr, xnc;
 {
-  int i, j, k, xlen, hlen;
+  int i, j, k, xlen;
 
   xlen = xnr*xnc;
-  hlen = hnr*hnc;
 
   /* row sums of t(w0) = col sums of w0 (t(w0) %*% mat1) */
   get_colsums(w0, wnr, wnc, vM);
@@ -984,11 +988,10 @@ static void ECM_update_w(w1, h1, w0, x_k, hnr, hnc, wnr, wnc, xnr, xnc, vM, vN, 
 double *h1, *w1, *w0, *x_k, *vM, *vN, *vN2;
 int hnr, hnc, wnr, wnc, xnr, xnc;
 {
-  int i, j, k, xlen, hlen;
+  int i, j, k, xlen;
   double tmp;
 
   xlen = xnr*xnc;
-  hlen = hnr*hnc;
 
   /* transpose h1 */
   transpose(h1, hnr, hnc, vN2);
@@ -1049,8 +1052,10 @@ NMFSTR *str;
   idxMat    = str->idxMat;
   train_adj = str->train_adj;
   lik0      = 1.0; 
+  lik1      = 0.0;
   eps       = str->EM_eps;
-  
+  delta_denom = 0.0;
+
   copy_dVec(w, wlen, w0);
   copy_dVec(h, hlen, h0);
 
@@ -1118,33 +1123,37 @@ int rank;
 static void suitor_main(str)
 NMFSTR *str;
 {
-  /* The seed has been set i the R code before this call.
+  /* The seed has been set in the R code before this call.
      kVec and rankVec should be ordered by kVec
   */
   int i, *kVec, *rankVec, k, rank, print, k0, xnr, xnc, kfold, xlen, conv, sumIdx;
+  int *convVec, *EM_niterVec;
   double minvalue, *x, *x_k, *tmpvec, train_err, test_err, *ret_train, *ret_test;
   double delta_denom, *x_k_hat, *logx, *x_k0;
   binary *idxMat;
 
-  k0        = -1;
-  x         = str->x;
-  x_k       = str->x_k;
-  x_k_hat   = str->x_k_hat;
-  x_k0      = str->x_k0;
-  logx      = str->logx;
-  idxMat    = str->idxMat;
-  kfold     = str->kfold;
-  kVec      = str->kVec;
-  rankVec   = str->rankVec;
-  print     = str->print;
-  xlen      = str->xlen;
-  ret_train = str->train_errors;
-  ret_test  = str->test_errors;
-  xnr       = str->xnr;
-  xnc       = str->xnc;
-  tmpvec    = str->tmpVecN;
-  minvalue  = str->EM_minvalue;
-
+  k0          = -1;
+  x           = str->x;
+  x_k         = str->x_k;
+  x_k_hat     = str->x_k_hat;
+  x_k0        = str->x_k0;
+  logx        = str->logx;
+  idxMat      = str->idxMat;
+  kfold       = str->kfold;
+  kVec        = str->kVec;
+  rankVec     = str->rankVec;
+  print       = str->print;
+  xlen        = str->xlen;
+  ret_train   = str->train_errors;
+  ret_test    = str->test_errors;
+  xnr         = str->xnr;
+  xnc         = str->xnc;
+  tmpvec      = str->tmpVecN;
+  minvalue    = str->EM_minvalue;
+  delta_denom = 0.0;
+  sumIdx      = 0;
+  convVec     = str->convVec;
+  EM_niterVec = str->EM_niterVec;
 
   for (i=0; i<str->nk; i++) {
     k    = kVec[i];
@@ -1176,21 +1185,17 @@ NMFSTR *str;
     update_x_k(x_k, x_k_hat, idxMat, xlen); /* Change this */
 
     /* Call ECM */
-    conv = ECM_alg(str);
+    conv           = ECM_alg(str);
+    convVec[i]     = conv;
+    EM_niterVec[i] = str->EM_iter;
+    if (!conv) warning("The maximal iteration has been reached and the algorithm has not converged;\n  please increase the maximal iteration R function parameter: max.iter.");
 
-    /* Use final estimates regarless if algorithm converged.
+    /* Use final estimates regardless if algorithm converged.
        See email from DongHyuk Lee 2020-07-03 */
     delta_denom = str->delta_denom;
     test_err    = loglike(x, logx, x_k_hat, idxMat, delta_denom, xlen, 1);
     train_err   = loglike(x, logx, x_k_hat, idxMat, delta_denom, xlen, 0);
-    if (conv) {
-      if (print > 2) Rprintf("EM algorithm converged in %d iterations\n", str->EM_iter); 
-    } else {
-      if (print) Rprintf("EM algorithm did not converge\n");
-      /*test_err    = DOUBLE_MISS;
-      train_err   = DOUBLE_MISS;*/
-    }
-
+   
     ret_train[i] = train_err;
     ret_test[i]  = test_err;
   }
@@ -1221,7 +1226,7 @@ NMFSTR *str;
 int *iargs;
 double *dargs, *xmat;
 {
-  int n, i;
+  int n;
 
   str->x            = NULL;
   str->x_k          = NULL;
@@ -1355,9 +1360,9 @@ int *iargs;
   return;
 }
 
-void C_call_suitor(mat, iargs, dargs, rankVec, kVec, ret_train, ret_test)
+void C_call_suitor(mat, iargs, dargs, rankVec, kVec, ret_train, ret_test, ret_convVec, ret_EM_niterVec)
 double *mat, *dargs, *ret_train, *ret_test;
-int *iargs, *rankVec, *kVec;
+int *iargs, *rankVec, *kVec, *ret_convVec, *ret_EM_niterVec;
 {
   NMFSTR str;
 
@@ -1369,6 +1374,8 @@ int *iargs, *rankVec, *kVec;
   str.kVec         = kVec;
   str.train_errors = ret_train;
   str.test_errors  = ret_test;
+  str.convVec      = ret_convVec;
+  str.EM_niterVec  = ret_EM_niterVec;
 
   suitor_main(&str);
 
