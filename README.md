@@ -4,7 +4,7 @@
 ### Introduction
 For the  _de novo_ mutational signature analysis, estimating the correct number of signatures is the crucial starting point, since it influences all the downstream steps, including extraction of signature profiles, estimation of signature activities and classification of tumors based on the andestimated activities. Here we present an **R** package `SUITOR`, an unsupervised cross-validation tool to select the optimal number of signatures. This tutorial introduces the usage of two main functions `suitor()` and `suitor_Extract_WH()` as follows.
 
-For more information please refer to the [user guide](https://github.com/binzhulab/SUITOR/blob/master/User_Guide_SUITOR.pdf)
+For more information please refer to the [user guide](https://github.com/binzhulab/SUITOR/blob/master/User_Guide_SUITOR.pdf).
 
 <br/>
 
