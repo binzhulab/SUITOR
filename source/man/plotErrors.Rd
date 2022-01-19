@@ -9,7 +9,8 @@
 }
 \arguments{
   \item{x}{Data frame of \code{summary} results in the return list from 
-              \code{\link{suitor}} or from \code{\link{getSummary}}.}
+              \code{\link{suitor}} or from \code{\link{getSummary}}, or
+              a data frame with columns \code{Rank}, \code{Type}, and \code{MSErr}.}
 }
 \details{
   The optimal rank is the minimum at which the test error is attained, and appears as
@@ -20,12 +21,11 @@
 \references{
 }
 \author{
-Donghyuk Lee <donghyuk.lee@nih.gov> and Bin Zhu <bin.zhu@nih.gov>
+Donghyuk Lee <dhyuklee@pusan.ac.kr> and Bin Zhu <bin.zhu@nih.gov>
 }
 \examples{
-  data(data, package="SUITOR")
-  s <- getSummary(results$all.results, ncol(data))
-  plotErrors(s$summary)
+  data(plotData, package="SUITOR")
+  plotErrors(plotData)
 }
 \keyword{ NMF, cross-validation, mutational signatures } 
 %\seealso{ \code{\link{getSummary}} }

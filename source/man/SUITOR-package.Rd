@@ -14,5 +14,5 @@
 \references{
  
 }
-\author{Donghyuk Lee <donghyuk.lee@nih.gov> and Bin Zhu <bin.zhu@nih.gov>}
+\author{Donghyuk Lee <dhyuklee@pusan.ac.kr> and Bin Zhu <bin.zhu@nih.gov>}
 \keyword{package}

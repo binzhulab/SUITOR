@@ -32,11 +32,12 @@
 \references{
 }
 \author{
-Donghyuk Lee <donghyuk.lee@nih.gov> and Bin Zhu <bin.zhu@nih.gov>
+Donghyuk Lee <dhyuklee@pusan.ac.kr> and Bin Zhu <bin.zhu@nih.gov>
 }
 \examples{
-  data(data, package="SUITOR")
-  ret <- getSummary(results$all.results, ncol(data))
+  data(SimData, package="SUITOR")
+  data(results, package="SUITOR")
+  ret <- getSummary(results$all.results, ncol(SimData))
   ret$summary
   ret$rank
 }

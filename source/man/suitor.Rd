@@ -17,21 +17,31 @@
  
   \bold{Options list op:}
   \tabular{lll}{
-    \bold{Name} \tab \bold{Description}                                     \tab \bold{Default Value} \cr
-    em.eps      \tab EM algorithm stopping tolerance                        \tab 1e-5          \cr
-    get.summary \tab 0 or 1 to create summary results                       \tab 1             \cr  
-    k.fold      \tab Number of folds                                        \tab 10            \cr  
-    max.iter    \tab Maximum number of iterations in EM algorithm           \tab 2000          \cr
-    max.rank    \tab Maximum rank                                           \tab 10            \cr
-    min.rank    \tab Minimum rank                                           \tab 1             \cr
-    min.value   \tab Minimum value of matrix before factorizing             \tab 1e-4          \cr
-    n.cores     \tab Number of cores to use (for non-Windows only)          \tab 1             \cr
-    n.seeds     \tab Number of seeds (starting points)                      \tab 30            \cr
-    plot        \tab 0 or 1 to produce an error plot                        \tab 1             \cr
-    print       \tab 0-3 to print info (0=no printing)                      \tab 1             \cr 
-    seeds       \tab Vector of seeds (takes precendence over n.seeds)       \tab NULL          \cr
-    kfold.vec   \tab Vector of values in 1:k.fold when running on a cluster \tab NULL
+    \bold{Name} \tab \bold{Description}                                                        \tab \bold{Default Value} \cr
+    em.eps      \tab EM algorithm stopping tolerance                                           \tab 1e-5          \cr
+    get.summary \tab 0 or 1 to create summary results                                          \tab 1             \cr  
+    k.fold      \tab Number of folds                                                           \tab 10            \cr  
+    max.iter    \tab Maximum number of iterations in EM algorithm                              \tab 2000          \cr
+    max.rank    \tab Maximum rank                                                              \tab 10            \cr
+    min.rank    \tab Minimum rank                                                              \tab 1             \cr
+    min.value   \tab Minimum value of matrix before factorizing                                \tab 1e-4          \cr
+    n.cores     \tab Number of cores to use for parallel computing                             \tab 1             \cr
+    n.seeds     \tab Number of seeds (starting points)                                         \tab 30            \cr
+    plot        \tab 0 or 1 to produce an error plot                                           \tab 1             \cr
+    print       \tab 0 or 1 to print info                                                      \tab 1             \cr 
+    seeds       \tab Vector of seeds (takes precendence over n.seeds)                          \tab NULL          \cr
+    type        \tab Socket type in \code{\link[parallel]{makeCluster}} for parallel computing \tab NULL          \cr
+    kfold.vec   \tab Vector of values in 1:k.fold when running on a cluster                    \tab NULL
   }
+
+  \bold{Parallel computing} \cr
+  If \code{n.cores > 1} and \code{type = NULL}, then \code{type} will be set to "FORK" when running on unix, and
+  set to "PSOCK" otherwise. \cr
+  \bold{NOTE:} The R_LIBS_USER environment variable may need to be set to the path where the SUITOR R package
+       was installed, especially if it was not installed in the default location. Examples of setting the 
+       R_LIBS_USER environment variable on unix and windows are below. \cr
+       (unix) export R_LIBS_USER=/path/to/SUITOR/package \cr
+       (windows) set R_LIBS_USER=/path/to/SUITOR/package \cr
 
   \bold{Utilizing a cluster} \cr
    When running on a cluster, the option \code{get.summary} should be set to 0.
@@ -54,13 +64,13 @@
 \references{
 }
 \author{
-Donghyuk Lee <donghyuk.lee@nih.gov> and Bin Zhu <bin.zhu@nih.gov>
+Donghyuk Lee <dhyuklee@pusan.ac.kr> and Bin Zhu <bin.zhu@nih.gov>
 }
 \examples{
-  data(data, package="SUITOR")
+  data(SimData, package="SUITOR")
 
   # Using the default options will take several minutes to run
-  #ret <- suitor(data)
+  #ret <- suitor(SimData)
   
 }
 \keyword{ NMF, cross-validation, mutational signatures } 
