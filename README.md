@@ -80,8 +80,7 @@ To run the function `suitor()` with different option values, we create a list of
 [1] 8
 > plotErrors(Summary2$summary)
 ```
-If `get.summary` is set to 0, `suitor()` only produce a matrix containing all possible results. In that case, as shown below one needs to use the `getSummary(obj, NC, NR)` function to compute the estimated optimal rank (`Summary1$rank`), where `obj` is the matrix containing all results from `suitor()`, `NC` and `NR` are the numbers of columns and rows respectively in the input `data` for `suitor()`. Please note that `NR` has a default value of 96 for single base substitution signature analysis. The `plotErrors()` function could be used to draw a cross validation error plot.
-[comment]: # (plotErrors.pdf Here!!)
+If `get.summary` is set to 0, `suitor()` only produce a matrix containing all possible results. In that case, as shown below one needs to use the `getSummary(obj, NC, NR)` function to compute the estimated optimal rank (`Summary1$rank`), where `obj` is the matrix containing all results from `suitor()`, `NC` and `NR` are the numbers of columns and rows respectively in the input `data` for `suitor()`. Please note that `NR` has a default value of 96 for single base substitution signature analysis. The `plotErrors()` function could be used to draw a cross validation error plot. An example plot is [here](https://github.com/binzhulab/SUITOR/blob/master/plotErrors.pdf).
 
 ### Run `suitor_extract_WH()` function
 Once the optimal number of signature or called rank is estimated by `suitor()`, we can extract the signature profiles  _**W**_~est~ and activities _**H**_~est~ with the function `suitor_extract_WH(data, rank, op)`. As in the `suitor()` function, the input `data` is a data frame or matrix containing mutational catalog whose elements are non-negative counts. A non-negative integer `rank` is the number of mutational signatures to be extracted. The possible option values are summarized in the following table and they can be used in the same manner as `suitor()`.
@@ -128,4 +127,4 @@ denovo G 1.431012e+01 2.083340e+01 8.982586e+01
 denovo H 8.595290e+01 1.260151e+01 1.788483e+01
 ```
 
-For more information please refer to the [user guide](link_to_userguide)
+For more information please refer to the [user guide](https://github.com/binzhulab/SUITOR/blob/master/User_Guide_SUITOR.pdf)
