@@ -22,21 +22,24 @@ check_data <- function(data) {
   if (!is.matrix(data)) stop("ERROR: data cannot be coerced to a matrix")  
   if (!is.numeric(data)) stop("ERROR: data must be numeric")
   if (any(data < 0)) stop("ERROR: data must be non-negative") 
+  if (any(!is.finite(data))) stop("ERROR: data must be non-negative") 
 
   data
 
 }
 
-check_op <- function(op, nc, nr) {
+check_op <- function(op, nc, nr, which=1) {
+
+  # which  1=suitor, 2=extractWH
 
   valid <- c("min.rank", "max.rank", "k.fold", "n.seeds",
              "max.iter", "em.eps", "plot", "print",
              "seeds", "kfold.vec", "min.value", "get.summary",
-             "n.cores")
+             "n.cores", "type")
   def   <- list(1, 10, 10, 30,
                 2000, 1e-5, TRUE, 1,
                 NULL, NULL, 0.0001, 1,
-                1)
+                1, NULL)
   op  <- default.list(op, valid, def)
   nm  <- names(list)
   tmp <- !(nm %in% valid)
@@ -46,10 +49,14 @@ check_op <- function(op, nc, nr) {
     msg <- paste("ERROR: the option(s) ", str, " are not valid", sep="")
     stop(msg)
   }
+  if (which == 2) {
+    op$k.fold    <- 1
+    op$kfold.vec <- 1
+  }
   if (op$min.rank < 1) stop("ERROR with option min.rank")
   if (op$max.rank < 1) stop("ERROR with option max.rank")
   if (op$min.rank > op$max.rank) stop("ERROR with option min.rank and/or max.rank")
-  if (op$k.fold < 2) stop("ERROR with option k.fold")
+  if ((which == 1) && (op$k.fold < 2)) stop("ERROR with option k.fold")
   if (op$n.seeds < 1) stop("ERROR with option n.seeds")
   if (op$max.iter < 1) stop("ERROR with option max.iter")
   if ((op$em.eps <= 0) || (op$em.eps > 1)) stop("ERROR with option em.eps")
@@ -60,6 +67,7 @@ check_op <- function(op, nc, nr) {
     tmp <- !(kvec %in% 1:(op$k.fold))
     if (any(tmp)) stop("ERROR with option kfold.vec") 
   }
+  
   nseeds <- op$n.seeds
   seeds  <- op[["seeds", exact=TRUE]]
   mseeds <- length(seeds)
@@ -73,6 +81,19 @@ check_op <- function(op, nc, nr) {
   op <- set_op_par(op)
   op$algorithm <- 1
   
+  type <- op[["type", exact=TRUE]]
+  if (is.null(type)) {
+    os <- tolower(.Platform$OS.type)
+    if ("unix" %in% os) {
+      type <- "FORK"
+    } else {
+      type <- "PSOCK" 
+    }
+  }
+  op$type <- toupper(removeWhiteSpace(type))
+  type <- op$type
+  if ((length(type) != 1) || !is.character(type)) stop("ERROR with option type")
+
   op
 
 }
@@ -81,8 +102,8 @@ set_op_par <- function(op) {
 
   n.cores <- op[["n.cores", exact=TRUE]]
   if (!length(n.cores)) n.cores <- 1
-  os <- .Platform$OS.type
-  if (tolower(os) == "windows") n.cores <- 1
+  #os <- .Platform$OS.type
+  #if (tolower(os) == "windows") n.cores <- 1
   rvec    <- (op$min.rank):(op$max.rank)
   n.runs  <- length(op$seeds)*length(op$kfold.vec)*length(rvec)
 
@@ -187,16 +208,24 @@ get_dargs <- function(op=NULL) {
 }
 
 
-my_nmf_C <- function(x, rank, seed) {
+my_nmf_C <- function(x, rank, seed, op=NULL) {
 
   iargs <- get_iargs(x, rank)
-  dargs <- get_dargs()
+  dargs <- get_dargs(op=op)
   set.seed(seed)
 
   nr    <- nrow(x)
   nc    <- ncol(x)
   retW  <- matrix(-1, nrow=nr, ncol=rank)
   retH  <- matrix(-1, nrow=rank, ncol=nc)
+
+  if (length(op)) {
+    minv <- op$min.value
+    x    <- as.numeric(x)
+    tmp  <- x < minv
+    tmp[is.na(tmp)] <- FALSE
+    if (any(tmp)) x[tmp] <- minv 
+  }
 
   tmp   <- .C("C_call_nmf", as.numeric(x), as.integer(iargs), as.numeric(dargs), 
                retW=as.numeric(retW), retH=as.numeric(retH), PACKAGE="SUITOR")
@@ -344,12 +373,16 @@ suitor_main <- function(input, op) {
   if (n < 2) {
     ret <- suitor_seq_C(input, op, op$parMat)
   } else {
-    clus <- makeForkCluster(n)
-    #clus  <- makeCluster(n)
+    if (op$type == "FORK") {
+      clus  <- makeForkCluster(n)
+    } else {
+      clus  <- makeCluster(n, type=op$type)
+      clusterExport(cl=clus, c("suitor_seq_C", "initReturnMat", "get_iargs", "get_dargs"), envir=environment())
+    }   
     registerDoParallel(clus)
     tmp <- suitor_par(input, op)
     stopCluster(clus)
-
+    
     # Combine results
     nruns <- nrow(op$parMat)
     cx    <- colnames(tmp[[1]])  
@@ -380,18 +413,21 @@ suitor_par <- function(input, op) {
             "my_nmf_C", "call_nmf", "suitor_inner", "suitor_par_main", 
             "ECM_alg")
   i <- -1
-  #foreach(i=1:n, .verbose=FALSE, .inorder=FALSE) %dopar% {
-  #  suitor_par_main(input, op, mat[a[i]:b[i], , drop=FALSE])  
-  #}
-  foreach(i=1:n, .verbose=FALSE, .inorder=FALSE) %dopar% {
-    suitor_seq_C(input, op, mat[a[i]:b[i], , drop=FALSE])  
+  if (op$type == "FORK") {
+    ret <- foreach(i=1:n, .verbose=FALSE, .inorder=FALSE) %dopar% {
+                   suitor_seq_C(input, op, mat[a[i]:b[i], , drop=FALSE])  
+           }
+  } else {
+    ret <- foreach(i=1:n, .verbose=FALSE, .inorder=FALSE, .packages='SUITOR') %dopar% {
+                   suitor_seq_C(input, op, mat[a[i]:b[i], , drop=FALSE])  
+           }
   }
-
+  ret
 }
 
 initReturnMat <- function(n) {
 
-  tmp           <- c("Rank", "k", "Seed", "Error.Train", "Error.Test")
+  tmp           <- c("Rank", "k", "Seed", "Error.Train", "Error.Test", "EM.niter")
   ret           <- matrix(data=NA, nrow=n, ncol=length(tmp))  
   colnames(ret) <- tmp 
 
@@ -444,32 +480,36 @@ suitor_par_main <- function(input, op, parMat) {
 
 suitor_seq_C <- function(input, op, parMat) {
 
-  seeds  <- unique(parMat[, 3])
-  nseeds <- length(seeds)
-  N      <- nrow(parMat)
-  ret    <- initReturnMat(N)
-  MISS   <- -9999.0e100
-  MISS2  <- -9999.0e99
+  seeds       <- unique(parMat[, 3])
+  nseeds      <- length(seeds)
+  N           <- nrow(parMat)
+  ret         <- initReturnMat(N)
+  MISS        <- -9999.0e100
+  MISS2       <- -9999.0e99
  
   b <- 0
   for (i in 1:nseeds) {
     seed  <- seeds[i]
     set.seed(seed) 
-    tmp   <- parMat[, 3] == seed
-    rvec  <- parMat[tmp, 1]
-    kvec  <- parMat[tmp, 2]
-    nk    <- length(kvec)
-    iargs <- get_iargs(input, 0, op=op, rvec=rvec)
-    dargs <- get_dargs(op=op)
-    err1  <- as.numeric(rep(MISS, nk))
-    err2  <- as.numeric(rep(MISS, nk)) 
-   
+    tmp      <- parMat[, 3] == seed
+    rvec     <- parMat[tmp, 1]
+    kvec     <- parMat[tmp, 2]
+    nk       <- length(kvec)
+    iargs    <- get_iargs(input, 0, op=op, rvec=rvec)
+    dargs    <- get_dargs(op=op)
+    err1     <- as.numeric(rep(MISS, nk))
+    err2     <- as.numeric(rep(MISS, nk)) 
+    convVec  <- as.integer(rep(0, nk))
+    niterVec <- as.integer(rep(0, nk))
+
     tmp  <- .C("C_call_suitor", as.numeric(input), as.integer(iargs), 
                as.numeric(dargs), as.integer(rvec), as.integer(kvec), 
-                ret_train=err1, ret_test=err2, PACKAGE="SUITOR")
-    err1 <- tmp$ret_train
-    err2 <- tmp$ret_test
-    tmp  <- err1 < MISS2
+                ret_train=err1, ret_test=err2, ret_conv=convVec, ret_niter=niterVec,
+                PACKAGE="SUITOR")
+    err1     <- tmp$ret_train
+    err2     <- tmp$ret_test
+    niterVec <- tmp$ret_niter
+    tmp      <- err1 < MISS2
     if (any(tmp)) err1[tmp] <- NA
     tmp  <- err2 < MISS2
     if (any(tmp)) err2[tmp] <- NA
@@ -482,8 +522,9 @@ suitor_seq_C <- function(input, op, parMat) {
     ret[tmp, 3] <- seed
     ret[tmp, 4] <- err1
     ret[tmp, 5] <- err2
+    ret[tmp, 6] <- niterVec
   }  
-
+  
   ret
 
 }
@@ -623,7 +664,7 @@ getSummary <- function(obj, NC, NR=96) {
     }
     CV.tr[i]   <- sum(CV.1, na.rm=TRUE)
     CV.te[i]   <- sum(CV.2, na.rm=TRUE)
-    mse1       <- sqrt(CV.tr[i]/M*(Kfold-1))
+    mse1       <- sqrt(CV.tr[i]/(M*(Kfold-1)))
     mse2       <- sqrt(CV.te[i]/M)
     row        <- row + 1
     tab[row, ] <- c(rank, "Train", mse1, CV.1)
@@ -647,32 +688,73 @@ getSummary <- function(obj, NC, NR=96) {
 
 }
 
-plotErrors <- function(x) {
+plotErrors0 <- function(x) {
 
   ranks <- as.numeric(x[, "Rank"])
-  cls   <- c("blue", "green")
+  cls   <- c("blue", "red")
+  lwd   <- 4
   min.r <- min(ranks, na.rm=TRUE)
   max.r <- max(ranks, na.rm=TRUE)
   mse   <- as.numeric(x[, "MSErr"])
   min.e <- min(mse, na.rm=TRUE)
   max.e <- max(mse, na.rm=TRUE)
-  plot(0, 0, type="n", xlab="Rank", ylab="MSE", xlim=c(min.r, max.r),
-       ylim=c(min.e, max.e))
+  xat   <- min.r:max.r
+  yat   <- floor(min.e):ceiling(max.e)
+  nx    <- length(xat)
+  ny    <- length(yat)
+
+  plot(0, 0, type="n", xlab="Number of signatures", ylab="Prediction error", 
+       xlim=c(min.r, max.r), ylim=c(min.e, max.e), font=2, axes=FALSE, font.lab=2)
+  axis(1, at=xat, lwd.ticks=2, font=2)
+  axis(2, at=yat, lwd.ticks=2, font=2)
+  box()
+  for (i in 1:nx) abline(v=xat[i], lty=1, col="lightgrey")
+  for (i in 1:ny) abline(h=yat[i], lty=1, col="lightgrey")
+
   tmp <- x[, "Type"] %in% "Train"
-  points(ranks[tmp], mse[tmp], type="l", col=cls[1])
+  points(ranks[tmp], mse[tmp], type="l", col=cls[1], lwd=lwd)
   tmp <- x[, "Type"] %in% "Test"
   v1  <- ranks[tmp]
   v2  <- mse[tmp]
-  points(v1, v2, type="l", col=cls[2])
+  points(v1, v2, type="l", col=cls[2], lwd=lwd)
   j   <- which.min(v2)
   r   <- v1[j]
   e   <- v2[j]
-  points(r, e, type="p", pch=19, col="red")
-  leg <- c("Train", "Test")
-  legend("top", leg, fill=cls, horiz=TRUE)
+  points(r, e, type="p", pch=19, col="red", lwd=lwd)
+  leg <- c("Validation", "Training")
+  legend("top", leg, lwd=lwd, horiz=TRUE, bty="n", col=c(cls[2], cls[1]), text.font=2)
 
   NULL
 }
+
+plotErrors <- function(x) {
+
+  errors <- as.numeric(x$MSErr)
+  ranks  <- as.numeric(x$Rank)
+  types  <- x$Type
+
+  tmp     <- types %in% "Test"
+  idx.min <- which.min(errors[tmp])
+  x.p     <- ranks[tmp][idx.min]
+  y.p     <- errors[tmp][idx.min]
+
+  tmp <- ggplot(data=x, aes(x=ranks, y=errors, group=types)) +
+    geom_line(aes(color=types),size=1)+
+    scale_x_continuous(breaks=seq(1, 15, 1),name="Number of signatures")+
+    scale_y_continuous(name="Prediction error")+
+    scale_colour_manual(name  ="",
+                      breaks=c("Test", "Train"),
+                      labels=c("Validation", "Training"),values=c("red", "blue"))+
+    geom_point(aes(x=x.p, y=y.p), colour="red")+  
+    theme_bw()+
+    theme(legend.position="bottom")
+
+  print(tmp)
+
+  NULL
+  
+}
+
 
 # Function to assign a default value to an element in a list
 default.list <- function(inList, names, default, error=NULL,
@@ -756,6 +838,22 @@ getSeqsFromList <- function(inlist) {
   mat
 
 }
+
+removeWhiteSpace <- function(str, leading=1, trailing=1) {
+
+  if ((leading) && (trailing)) {
+    ret <- gsub("^\\s+|\\s+$", "", str, perl=TRUE)
+  } else if (leading) {
+    ret <- gsub("^\\s+", "", str, perl=TRUE)
+  } else if (trailing) {
+    ret <- gsub("\\s+$", "", str, perl=TRUE)
+  } else {
+    ret <- str
+  }
+
+  ret
+
+} # END: removeWhiteSpace
 
 ####################################################################
 ####################################################################
