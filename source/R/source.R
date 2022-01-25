@@ -10,6 +10,9 @@ suitor <- function(data, op=NULL) {
     ret <- getSummary(ret$all.results, nc, NR=nr)
     if (op$plot) plotErrors(ret$summary) 
   }
+  if (any(ret$all.results[, "EM.niter"] > op$max.iter)) {
+    warning("The maximal iteration has been reached and the algorithm has not converged; please increase the maximal iteration R function parameter: max.iter.")
+  }
   ret$op <- op
   ret
 }
