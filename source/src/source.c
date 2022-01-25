@@ -1188,7 +1188,9 @@ NMFSTR *str;
     conv           = ECM_alg(str);
     convVec[i]     = conv;
     EM_niterVec[i] = str->EM_iter;
+	/*
     if (!conv) warning("The maximal iteration has been reached and the algorithm has not converged;\n  please increase the maximal iteration R function parameter: max.iter.");
+    */
 
     /* Use final estimates regardless if algorithm converged.
        See email from DongHyuk Lee 2020-07-03 */
